@@ -9,6 +9,6 @@ func requestHandler(w http.ResponseWriter, r *http.Request) {
 }
 */
 func main(){
-	dataSlice := GetData()
+	dataSlice := GetData24H()
 	DatabaseEntry(dataSlice)
 }

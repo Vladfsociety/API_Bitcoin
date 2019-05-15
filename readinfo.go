@@ -3,6 +3,8 @@ package main
 import (
 	"fmt"
 	"log"
+	"time"
+	"strings"
 	"io/ioutil"
 	"net/http"
 	"strconv"
@@ -55,9 +57,9 @@ func Empty(json []byte) bool {
   return false
 }
 
-func GetJson(offset int) []byte {
+func GetJson(timeResult string, offset int) []byte {
   offsetString := strconv.Itoa(offset)
-  resp, err := http.Get("https://api.blockchair.com/bitcoin/blocks?q=time(2019-05-10%2018:24:00..2019-05-11%2018:24:00)&s=time(desc)&limit=100&offset=" + offsetString)
+  resp, err := http.Get("https://api.blockchair.com/bitcoin/blocks?q=time(" + timeResult + ")&s=time(desc)&limit=100&offset=" + offsetString)
   if err != nil {
     log.Fatalln(err)
   }
@@ -71,11 +73,11 @@ func GetJson(offset int) []byte {
   return json
 }
 
-func GetJsonResult() [][]byte {
+func GetJsonResult(timeResult string) [][]byte {
   jsonResult := make([][]byte, 0)
   offset := 0
   for {
-    json := GetJson(offset)
+    json := GetJson(timeResult, offset)
     if Empty(json) {
       break
     }
@@ -85,8 +87,22 @@ func GetJsonResult() [][]byte {
   return jsonResult
 }
 
-func GetData() []Block {
-  json := GetJsonResult()
+func GetTime() string {
+	timeNow := time.Now()
+	timeNow = timeNow.Add(-3 * time.Hour)
+	timePast := timeNow.Add(-24 * time.Hour)
+	timeNowString := timeNow.Format(time.RFC3339)[:19]
+	timePastString := timePast.Format(time.RFC3339)[:19]
+	timeNowString = strings.Join(strings.Split(timeNowString, "T"), " ")
+	timePastString = strings.Join(strings.Split(timePastString, "T"), " ")
+  timeResult := strings.Join([]string{timePastString, timeNowString}, "..")
+	return timeResult
+}
+
+func GetData24H() []Block {
+	timeResult := GetTime()
+	fmt.Println(timeResult)
+  json := GetJsonResult(timeResult)
   gjson := GetGjsonResult(json)
   return GetSliceResult(gjson)
 }
