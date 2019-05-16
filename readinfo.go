@@ -87,21 +87,24 @@ func GetJsonResult(timeResult string) [][]byte {
   return jsonResult
 }
 
-func GetTime() string {
-	timeNow := time.Now()
-	timeNow = timeNow.Add(-3 * time.Hour)
-	timePast := timeNow.Add(-24 * time.Hour)
-	timeNowString := timeNow.Format(time.RFC3339)[:19]
-	timePastString := timePast.Format(time.RFC3339)[:19]
-	timeNowString = strings.Join(strings.Split(timeNowString, "T"), " ")
-	timePastString = strings.Join(strings.Split(timePastString, "T"), " ")
+func GetTime(timeLastDb time.Time) string, string {
+	timeLastDb := DatabaseLastRecordTime()
+	timeNowTime := time.Now()
+	timeNowTime = timeNowTime.Add(-3 * time.Hour)
+	timePastTime := timeNowTime.Add(-24 * time.Hour)
+	fmt.Println(timeLastDb, timeNowTime, timePastTime)
+	if timeLastDb.After(timePastTime) {
+		timePastTime, timeLastDb = timeLastDb, timePastTime
+	}
+	fmt.Println(timeLastDb, timeNowTime, timePastTime)
+	timeNowString := timeNowTime.Format("2006-01-02 15:04:05")
+	timePastString := timePastTime.Format("2006-01-02 15:04:05")
   timeResult := strings.Join([]string{timePastString, timeNowString}, "..")
-	return timeResult
+	return timeResult, timeLastDb
 }
 
-func GetData24H() []Block {
-	timeResult := GetTime()
-	fmt.Println(timeResult)
+func GetDataDay() []Block {
+	timeResult, := GetTime()
   json := GetJsonResult(timeResult)
   gjson := GetGjsonResult(json)
   return GetSliceResult(gjson)

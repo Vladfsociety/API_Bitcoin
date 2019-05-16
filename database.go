@@ -2,6 +2,8 @@ package main
 
 import (
     "fmt"
+    "time"
+    "strconv"
     "database/sql"
     _ "github.com/lib/pq"
 )
@@ -35,4 +37,79 @@ func DatabaseEntry(data []Block) {
       fmt.Println("insert", err)
     }
   }
+}
+
+func Query(db *sql.DB, sqlStatement string) string {
+  row := db.QueryRow(sqlStatement)
+  var result string
+  err := row.Scan(&result)
+  if err != nil {
+    fmt.Println("Query error", err)
+  }
+  return result
+}
+
+func QuantityBlocks(db *sql.DB) int {
+  sqlStatement := `SELECT count(*) FROM blocks;`
+  quantityBlocksString := Query(db, sqlStatement)
+  quantityBlocksInt, err := strconv.Atoi(quantityBlocksString)
+  if err != nil {
+      fmt.Println("CountBlocks: convert string to int error", err)
+  }
+  return quantityBlocksInt
+}
+
+func QuantityTransactions(db *sql.DB) int32 {
+  sqlStatement := `SELECT sum(transaction_count) FROM blocks;`
+  quantityTransactionsString := Query(db, sqlStatement)
+  quantityTransactionsInt, err := strconv.ParseInt(quantityTransactionsString, 10, 32)
+  if err != nil {
+      fmt.Println("CountTransactions: convert string to int32 error", err)
+  }
+  return int32(quantityTransactionsInt)
+}
+
+func FeeTotalUsd(db *sql.DB) float32 {
+  sqlStatement := `SELECT sum(fee_total_usd)/sum(transaction_count) FROM blocks;`
+  FeeTotalUsdString := Query(db, sqlStatement)
+  FeeTotalUsdFloat, err := strconv.ParseFloat(FeeTotalUsdString, 32)
+  if err != nil {
+      fmt.Println("FeeTotalUsd: convert string to float64 error", err)
+  }
+  return float32(FeeTotalUsdFloat)
+}
+
+func FeeTotalSatoshi(db *sql.DB) int32 {
+  sqlStatement := `SELECT sum(fee_total)/sum(transaction_count) FROM blocks;`
+  FeeTotalSatoshiString := Query(db, sqlStatement)
+  FeeTotalSatoshiFloat, err := strconv.ParseFloat(FeeTotalSatoshiString, 32)
+  if err != nil {
+      fmt.Println("FeeTotalUsd: convert string to int64 error", err)
+  }
+  FeeTotalSatoshiInt := int32(FeeTotalSatoshiFloat)
+  return FeeTotalSatoshiInt
+}
+
+func DatabaseMenu() {
+  db := DatabaseConnect()
+  defer db.Close()
+  quantityBlocks := QuantityBlocks(db)
+  quantityTransactions := QuantityTransactions(db)
+  feeTotalSatoshi := FeeTotalSatoshi(db)
+  feeTotalUsd := FeeTotalUsd(db)
+  fmt.Println(quantityBlocks, quantityTransactions, feeTotalSatoshi)
+	fmt.Printf("%.2f", feeTotalUsd)
+}
+
+func DatabaseLastRecordTime() time.Time {
+  db := DatabaseConnect()
+  defer db.Close()
+  sqlStatement := `SELECT max(time) FROM blocks;`
+  lastString := Query(db, sqlStatement)
+  lastString = lastString[1:(len(lastString)-1)]
+  lastTime, err := time.Parse("2006-01-02 15:04:05", lastString)
+  if err != nil {
+      fmt.Println("DatabaseLastRecordTime: parse time error", err)
+  }
+  return lastTime
 }

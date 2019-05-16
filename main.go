@@ -1,14 +1,16 @@
 package main
 
 import (
-	//"fmt"
+		//"fmt"
+		//"time"
 )
 /*
 func requestHandler(w http.ResponseWriter, r *http.Request) {
     fmt.Fprintf(w, "Hello, world")
 }
 */
-func main(){
-	dataSlice := GetData24H()
+func main() {
+	dataSlice := GetDataDay()
 	DatabaseEntry(dataSlice)
+	DatabaseMenu()
 }
