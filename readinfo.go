@@ -2,7 +2,7 @@ package main
 
 import (
 	"fmt"
-	"log"
+	//"log"
 	"time"
 	"strings"
 	"io/ioutil"
@@ -18,6 +18,12 @@ const(
 
 type Block struct {
   attribute []interface{}
+}
+
+func Check(err error) {
+	if err != nil {
+    panic(err)
+  }
 }
 
 func GetSlice(gjson []gjson.Result) []Block {
@@ -60,13 +66,9 @@ func Empty(json []byte) bool {
 func GetJson(timeResult string, offset int) []byte {
   offsetString := strconv.Itoa(offset)
   resp, err := http.Get("https://api.blockchair.com/bitcoin/blocks?q=time(" + timeResult + ")&s=time(desc)&limit=100&offset=" + offsetString)
-  if err != nil {
-    log.Fatalln(err)
-  }
+  Check(err)
   json, err := ioutil.ReadAll(resp.Body)
-  if err != nil {
-    log.Fatalln(err)
-  }
+  Check(err)
   if !gjson.Valid(string(json)) {
     fmt.Println("invalid json")
   }
@@ -87,24 +89,18 @@ func GetJsonResult(timeResult string) [][]byte {
   return jsonResult
 }
 
-func GetTime(timeLastDb time.Time) string, string {
-	timeLastDb := DatabaseLastRecordTime()
+func GetTime() string {
 	timeNowTime := time.Now()
 	timeNowTime = timeNowTime.Add(-3 * time.Hour)
 	timePastTime := timeNowTime.Add(-24 * time.Hour)
-	fmt.Println(timeLastDb, timeNowTime, timePastTime)
-	if timeLastDb.After(timePastTime) {
-		timePastTime, timeLastDb = timeLastDb, timePastTime
-	}
-	fmt.Println(timeLastDb, timeNowTime, timePastTime)
 	timeNowString := timeNowTime.Format("2006-01-02 15:04:05")
 	timePastString := timePastTime.Format("2006-01-02 15:04:05")
   timeResult := strings.Join([]string{timePastString, timeNowString}, "..")
-	return timeResult, timeLastDb
+	return timeResult
 }
 
 func GetDataDay() []Block {
-	timeResult, := GetTime()
+	timeResult := GetTime()
   json := GetJsonResult(timeResult)
   gjson := GetGjsonResult(json)
   return GetSliceResult(gjson)
