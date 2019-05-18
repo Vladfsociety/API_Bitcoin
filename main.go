@@ -29,15 +29,15 @@ func GetTime(dbLastTime time.Time) string {
 }
 
 func main() {
-	/*var dbLastTime time.Time
+	var dbLastTime time.Time
   if DbEmpty() {
 		var err error
     dbLastTime, err = time.Parse("2006-01-02 15:04:05", "2001-01-01 12:00:00")
 		Check(err)
   } else {
 		dbLastTime = DbLastTime()
-	}*/
-	timeResult := GetTime(DbLastTime())
+	}
+	timeResult := GetTime(dbLastTime)
 	dataSlice := GetDataDay(timeResult)
 	DbEntry(dataSlice)
 	DbStat()
