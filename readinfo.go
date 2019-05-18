@@ -1,10 +1,10 @@
 package main
 
 import (
-	"fmt"
+	//"fmt"
 	//"log"
-	"time"
-	"strings"
+	//"time"
+	//"strings"
 	"io/ioutil"
 	"net/http"
 	"strconv"
@@ -89,18 +89,8 @@ func GetJsonResult(timeResult string) [][]byte {
   return jsonResult
 }
 
-func GetTime() string {
-	timeNowTime := time.Now()
-	timeNowTime = timeNowTime.Add(-3 * time.Hour)
-	timePastTime := timeNowTime.Add(-24 * time.Hour)
-	timeNowString := timeNowTime.Format("2006-01-02 15:04:05")
-	timePastString := timePastTime.Format("2006-01-02 15:04:05")
-  timeResult := strings.Join([]string{timePastString, timeNowString}, "..")
-	return timeResult
-}
 
-func GetDataDay() []Block {
-	timeResult := GetTime()
+func GetDataDay(timeResult string) []Block {
   json := GetJsonResult(timeResult)
   gjson := GetGjsonResult(json)
   return GetSliceResult(gjson)

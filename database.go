@@ -2,7 +2,8 @@ package main
 
 import (
     "fmt"
-    //"time"
+    "time"
+    "strings"
     "strconv"
     "database/sql"
     _ "github.com/lib/pq"
@@ -92,4 +93,29 @@ func DbClear() {
   sqlStatement := `DELETE FROM blocks;`
   _, err := db.Exec(sqlStatement)
   Check(err)
+}
+
+func DbEmpty() bool {
+  db := DbConnect()
+  defer db.Close()
+  sqlStatement := `SELECT count(*) FROM blocks;`
+  countString := DbQuery(db, sqlStatement)
+  countInt, err := strconv.Atoi(countString)
+  Check(err)
+  if countInt == 0 {
+    return true
+  }
+  return false
+}
+
+func DbLastTime() time.Time {
+  db := DbConnect()
+  defer db.Close()
+  sqlStatement := `SELECT max(time) FROM blocks;`
+  timeLastString := DbQuery(db, sqlStatement)
+  timeLastString = timeLastString[0:len(timeLastString)-1]
+  timeLastString = strings.Join(strings.Split(timeLastString, "T"), " ")
+  timeLastTime, err := time.Parse("2006-01-02 15:04:05", timeLastString)
+  Check(err)
+  return timeLastTime
 }
