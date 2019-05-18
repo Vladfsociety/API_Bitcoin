@@ -16,7 +16,7 @@ const (
   dbname 	  = "bitcoin"
 )
 
-func DatabaseConnect() *sql.DB {
+func DbConnect() *sql.DB {
   psqlInfo := fmt.Sprintf("host=%s port=%d user=%s " + "password=%s dbname=%s sslmode=disable",
   host, port, user, password, dbname)
   db, err := sql.Open("postgres", psqlInfo)
@@ -24,8 +24,8 @@ func DatabaseConnect() *sql.DB {
   return db
 }
 
-func DatabaseEntry(data []Block) {
-  db := DatabaseConnect()
+func DbEntry(data []Block) {
+  db := DbConnect()
   defer db.Close()
   sqlStatement := `INSERT INTO blocks (id, time, median_time, size, difficulty, transaction_count, input_count, output_count, input_total, input_total_usd, output_total, output_total_usd, fee_total, fee_total_usd, generation, generation_usd, reward, reward_usd)
   VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18)`
@@ -76,8 +76,8 @@ func FeeTotalSatoshi(db *sql.DB) int32 {
   return FeeTotalSatoshiInt
 }
 
-func DatabaseMenu() {
-  db := DatabaseConnect()
+func DbStat() {
+  db := DbConnect()
   defer db.Close()
   quantityBlocks := QuantityBlocks(db)
   quantityTransactions := QuantityTransactions(db)
@@ -86,50 +86,10 @@ func DatabaseMenu() {
   fmt.Printf("Количество блоков: %v\nКоличество транзакций: %v\nСредняя комиссия за транзакцию(сатоши): %v\nСредняя комиссия за транзакцию(USD): %.2f", quantityBlocks, quantityTransactions, feeTotalSatoshi, feeTotalUsd)
 }
 
-func DatabaseClear() {
-  db := DatabaseConnect()
+func DbClear() {
+  db := DbConnect()
   defer db.Close()
   sqlStatement := `DELETE FROM blocks;`
   _, err := db.Exec(sqlStatement)
   Check(err)
 }
-
-/*func DatabaseLastRecordTime() time.Time {
-  db := DatabaseConnect()
-  defer db.Close()
-  sqlStatement := `SELECT max(time) FROM blocks;`
-  lastString := Query(db, sqlStatement)
-  if lastString == "" {
-    lastTime, err := time.Parse("2006-01-02 15:04:05", "2001-01-01 12:00:00")
-    if err != nil {
-        fmt.Println("DatabaseLastRecordTime: parse time error", err)
-    }
-    return lastTime
-  }
-  lastString = lastString[1:(len(lastString)-1)]
-  lastTime, err := time.Parse("2006-01-02 15:04:05", lastString)
-  if err != nil {
-      fmt.Println("DatabaseLastRecordTime: parse time error", err)
-  }
-  return lastTime
-}
-
-func DatabaseDeleteOldBlocks(timePastTime time.Time) {
-  db := DatabaseConnect()
-  defer db.Close()
-  timeLastDb := DatabaseLastRecordTime()
-  if timeLastDb.After(timePastTime) {
-		sqlStatement := `DELETE FROM blocks WHERE id < (SELECT id FROM blocks WHERE time = $1);`
-    _, err := db.Exec(sqlStatement, timeLastDb)
-    if err != nil {
-      panic(err)
-    }
-
-	} else {
-    sqlStatement := `DELETE FROM blocks;`
-    _, err := db.Exec(sqlStatement)
-    if err != nil {
-      panic(err)
-    }
-  }
-}*/

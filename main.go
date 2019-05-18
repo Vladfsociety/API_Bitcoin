@@ -10,8 +10,8 @@ func requestHandler(w http.ResponseWriter, r *http.Request) {
 }
 */
 func main() {
-	DatabaseClear()
+	//DatabaseClear()
 	dataSlice := GetDataDay()
-	DatabaseEntry(dataSlice)
-	DatabaseMenu()
+	DbEntry(dataSlice)
+	DbStat()
 }
