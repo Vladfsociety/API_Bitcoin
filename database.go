@@ -36,6 +36,14 @@ func DbEntry(data []Block) {
   }
 }
 
+func DbQueryLastDay(db *sql.DB, sqlStatement, timeNowTime, timePastTime string) string {
+  row := db.QueryRow(sqlStatement, timeNowTime, timePastTime)
+  var result string
+  err := row.Scan(&result)
+  Check(err)
+  return result
+}
+
 func DbQuery(db *sql.DB, sqlStatement string) string {
   row := db.QueryRow(sqlStatement)
   var result string
@@ -44,46 +52,46 @@ func DbQuery(db *sql.DB, sqlStatement string) string {
   return result
 }
 
-func QuantityBlocks(db *sql.DB) int {
-  sqlStatement := `SELECT count(*) FROM blocks;`
-  quantityBlocksString := DbQuery(db, sqlStatement)
+func QuantityBlocks(db *sql.DB, timeNowTime, timePastTime string) int {
+  sqlStatement := `SELECT count(*) FROM blocks WHERE time < $1 AND time > $2 ;`
+  quantityBlocksString := DbQueryLastDay(db, sqlStatement, timeNowTime, timePastTime)
   quantityBlocksInt, err := strconv.Atoi(quantityBlocksString)
   Check(err)
   return quantityBlocksInt
 }
 
-func QuantityTransactions(db *sql.DB) int32 {
-  sqlStatement := `SELECT sum(transaction_count) FROM blocks;`
-  quantityTransactionsString := DbQuery(db, sqlStatement)
-  quantityTransactionsInt, err := strconv.ParseInt(quantityTransactionsString, 10, 32)
+func QuantityTransactions(db *sql.DB, timeNowTime, timePastTime string) int64 {
+  sqlStatement := `SELECT sum(transaction_count) FROM blocks WHERE time < $1 AND time > $2 ;`
+  quantityTransactionsString := DbQueryLastDay(db, sqlStatement, timeNowTime, timePastTime)
+  quantityTransactionsInt, err := strconv.ParseInt(quantityTransactionsString, 10, 64)
   Check(err)
-  return int32(quantityTransactionsInt)
+  return quantityTransactionsInt
 }
 
-func FeeTotalUsd(db *sql.DB) float32 {
-  sqlStatement := `SELECT sum(fee_total_usd)/sum(transaction_count) FROM blocks;`
-  FeeTotalUsdString := DbQuery(db, sqlStatement)
+func FeeTotalUsd(db *sql.DB, timeNowTime, timePastTime string) float32 {
+  sqlStatement := `SELECT sum(fee_total_usd)/sum(transaction_count) FROM blocks WHERE time < $1 AND time > $2 ;`
+  FeeTotalUsdString := DbQueryLastDay(db, sqlStatement, timeNowTime, timePastTime)
   FeeTotalUsdFloat, err := strconv.ParseFloat(FeeTotalUsdString, 32)
   Check(err)
   return float32(FeeTotalUsdFloat)
 }
 
-func FeeTotalSatoshi(db *sql.DB) int32 {
-  sqlStatement := `SELECT sum(fee_total)/sum(transaction_count) FROM blocks;`
-  FeeTotalSatoshiString := DbQuery(db, sqlStatement)
+func FeeTotalSatoshi(db *sql.DB, timeNowTime, timePastTime string) int32 {
+  sqlStatement := `SELECT sum(fee_total)/sum(transaction_count) FROM blocks WHERE time < $1 AND time > $2 ;`
+  FeeTotalSatoshiString := DbQueryLastDay(db, sqlStatement, timeNowTime, timePastTime)
   FeeTotalSatoshiFloat, err := strconv.ParseFloat(FeeTotalSatoshiString, 32)
   Check(err)
   FeeTotalSatoshiInt := int32(FeeTotalSatoshiFloat)
   return FeeTotalSatoshiInt
 }
 
-func DbStat() {
+func DbStat(timeNowTime, timePastTime string) {
   db := DbConnect()
   defer db.Close()
-  quantityBlocks := QuantityBlocks(db)
-  quantityTransactions := QuantityTransactions(db)
-  feeTotalSatoshi := FeeTotalSatoshi(db)
-  feeTotalUsd := FeeTotalUsd(db)
+  quantityBlocks := QuantityBlocks(db, timeNowTime, timePastTime)
+  quantityTransactions := QuantityTransactions(db, timeNowTime, timePastTime)
+  feeTotalSatoshi := FeeTotalSatoshi(db, timeNowTime, timePastTime)
+  feeTotalUsd := FeeTotalUsd(db, timeNowTime, timePastTime)
   fmt.Printf("Количество блоков: %v\nКоличество транзакций: %v\nСредняя комиссия за транзакцию(сатоши): %v\nСредняя комиссия за транзакцию(USD): %.2f", quantityBlocks, quantityTransactions, feeTotalSatoshi, feeTotalUsd)
 }
 
