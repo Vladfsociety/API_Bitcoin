@@ -3,7 +3,7 @@ package main
 import (
     "fmt"
     "time"
-    "strings"
+    //"strings"
     "strconv"
     "database/sql"
     _ "github.com/lib/pq"
@@ -36,7 +36,23 @@ func DbEntry(data []Block) {
   }
 }
 
-func DbQueryLastDay(db *sql.DB, sqlStatement, timeNowTime, timePastTime string) string {
+func DbQueryLastDayRows(db *sql.DB, sqlStatement, timeNowTime, timePastTime string) []string {
+  rows, err := db.Query(sqlStatement, timeNowTime, timePastTime)
+  Check(err)
+  defer rows.Close()
+  blocks := make([]string, 0)
+  var block string
+  for rows.Next() {
+    err := rows.Scan(&block)
+    Check(err)
+    blocks = append(blocks, block)
+  }
+  err = rows.Err()
+  Check(err)
+  return blocks
+}
+
+func DbQueryLastDayRow(db *sql.DB, sqlStatement, timeNowTime, timePastTime string) string {
   row := db.QueryRow(sqlStatement, timeNowTime, timePastTime)
   var result string
   err := row.Scan(&result)
@@ -44,7 +60,7 @@ func DbQueryLastDay(db *sql.DB, sqlStatement, timeNowTime, timePastTime string) 
   return result
 }
 
-func DbQuery(db *sql.DB, sqlStatement string) string {
+func DbQueryRow(db *sql.DB, sqlStatement string) string {
   row := db.QueryRow(sqlStatement)
   var result string
   err := row.Scan(&result)
@@ -54,7 +70,7 @@ func DbQuery(db *sql.DB, sqlStatement string) string {
 
 func QuantityBlocks(db *sql.DB, timeNowTime, timePastTime string) int {
   sqlStatement := `SELECT count(*) FROM blocks WHERE time < $1 AND time > $2 ;`
-  quantityBlocksString := DbQueryLastDay(db, sqlStatement, timeNowTime, timePastTime)
+  quantityBlocksString := DbQueryLastDayRow(db, sqlStatement, timeNowTime, timePastTime)
   quantityBlocksInt, err := strconv.Atoi(quantityBlocksString)
   Check(err)
   return quantityBlocksInt
@@ -62,7 +78,7 @@ func QuantityBlocks(db *sql.DB, timeNowTime, timePastTime string) int {
 
 func QuantityTransactions(db *sql.DB, timeNowTime, timePastTime string) int64 {
   sqlStatement := `SELECT sum(transaction_count) FROM blocks WHERE time < $1 AND time > $2 ;`
-  quantityTransactionsString := DbQueryLastDay(db, sqlStatement, timeNowTime, timePastTime)
+  quantityTransactionsString := DbQueryLastDayRow(db, sqlStatement, timeNowTime, timePastTime)
   quantityTransactionsInt, err := strconv.ParseInt(quantityTransactionsString, 10, 64)
   Check(err)
   return quantityTransactionsInt
@@ -70,7 +86,7 @@ func QuantityTransactions(db *sql.DB, timeNowTime, timePastTime string) int64 {
 
 func FeeTotalUsd(db *sql.DB, timeNowTime, timePastTime string) float32 {
   sqlStatement := `SELECT sum(fee_total_usd)/sum(transaction_count) FROM blocks WHERE time < $1 AND time > $2 ;`
-  FeeTotalUsdString := DbQueryLastDay(db, sqlStatement, timeNowTime, timePastTime)
+  FeeTotalUsdString := DbQueryLastDayRow(db, sqlStatement, timeNowTime, timePastTime)
   FeeTotalUsdFloat, err := strconv.ParseFloat(FeeTotalUsdString, 32)
   Check(err)
   return float32(FeeTotalUsdFloat)
@@ -78,11 +94,26 @@ func FeeTotalUsd(db *sql.DB, timeNowTime, timePastTime string) float32 {
 
 func FeeTotalSatoshi(db *sql.DB, timeNowTime, timePastTime string) int32 {
   sqlStatement := `SELECT sum(fee_total)/sum(transaction_count) FROM blocks WHERE time < $1 AND time > $2 ;`
-  FeeTotalSatoshiString := DbQueryLastDay(db, sqlStatement, timeNowTime, timePastTime)
+  FeeTotalSatoshiString := DbQueryLastDayRow(db, sqlStatement, timeNowTime, timePastTime)
   FeeTotalSatoshiFloat, err := strconv.ParseFloat(FeeTotalSatoshiString, 32)
   Check(err)
   FeeTotalSatoshiInt := int32(FeeTotalSatoshiFloat)
   return FeeTotalSatoshiInt
+}
+
+func AvgTimeBetweenBlocks(db *sql.DB, timeNowTime, timePastTime string) float64 {
+  sqlStatement := `SELECT median_time FROM blocks WHERE median_time < $1 AND median_time > $2 ORDER BY median_time DESC;`
+  timeBlocks := DbQueryLastDayRows(db, sqlStatement, timeNowTime, timePastTime)
+  var sumTime int64 = 0
+  var timeLater, timeEarlier time.Time
+  timeLater = StringToTime(timeBlocks[0])
+  for block := 1; block < len(timeBlocks); block++ {
+    timeEarlier = StringToTime(timeBlocks[block])
+    sumTime += int64(timeLater.Sub(timeEarlier)/time.Second)
+    timeLater = timeEarlier
+  }
+  avgTime := float64(sumTime/int64(len(timeBlocks)-1))
+  return avgTime
 }
 
 func DbStat(timeNowTime, timePastTime string) {
@@ -92,7 +123,8 @@ func DbStat(timeNowTime, timePastTime string) {
   quantityTransactions := QuantityTransactions(db, timeNowTime, timePastTime)
   feeTotalSatoshi := FeeTotalSatoshi(db, timeNowTime, timePastTime)
   feeTotalUsd := FeeTotalUsd(db, timeNowTime, timePastTime)
-  fmt.Printf("Количество блоков: %v\nКоличество транзакций: %v\nСредняя комиссия за транзакцию(сатоши): %v\nСредняя комиссия за транзакцию(USD): %.2f", quantityBlocks, quantityTransactions, feeTotalSatoshi, feeTotalUsd)
+  avgtimeBlocks := AvgTimeBetweenBlocks(db, timeNowTime, timePastTime)
+  fmt.Printf("Количество блоков: %v\nКоличество транзакций: %v\nСредняя комиссия за транзакцию(сатоши): %v\nСредняя комиссия за транзакцию(USD): %.2f\nСреднее время между блоками(секунды): %.2f", quantityBlocks, quantityTransactions, feeTotalSatoshi, feeTotalUsd, avgtimeBlocks)
 }
 
 func DbClear() {
@@ -107,7 +139,7 @@ func DbEmpty() bool {
   db := DbConnect()
   defer db.Close()
   sqlStatement := `SELECT count(*) FROM blocks;`
-  countString := DbQuery(db, sqlStatement)
+  countString := DbQueryRow(db, sqlStatement)
   countInt, err := strconv.Atoi(countString)
   Check(err)
   if countInt == 0 {
@@ -120,10 +152,7 @@ func DbLastTime() time.Time {
   db := DbConnect()
   defer db.Close()
   sqlStatement := `SELECT max(time) FROM blocks;`
-  timeLastString := DbQuery(db, sqlStatement)
-  timeLastString = timeLastString[0:len(timeLastString)-1]
-  timeLastString = strings.Join(strings.Split(timeLastString, "T"), " ")
-  timeLastTime, err := time.Parse("2006-01-02 15:04:05", timeLastString)
-  Check(err)
-  return timeLastTime
+  timeLastString := DbQueryRow(db, sqlStatement)
+  timeLast := StringToTime(timeLastString)
+  return timeLast
 }

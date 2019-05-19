@@ -6,6 +6,14 @@ import (
 		"strings"
 )
 
+func StringToTime(timeString string) time.Time {
+	timeString = timeString[0:len(timeString)-1]
+  timeString = strings.Join(strings.Split(timeString, "T"), " ")
+	time, err := time.Parse("2006-01-02 15:04:05", timeString)
+	Check(err)
+	return time
+}
+
 func TimeToString(time time.Time) string {
 	return time.Format("2006-01-02 15:04:05")
 }
