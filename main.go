@@ -1,7 +1,7 @@
 package main
 
 import (
-		//"fmt"
+		"fmt"
 		"time"
 		"strings"
 )
@@ -47,10 +47,43 @@ func GetTimeString(timeNow, timeDbLast time.Time) string {
 	return timeResult
 }
 
+func GetDataAndEntryInDb(ch1 chan int) {
+	for {
+		timeNow, timeDbLast := GetTime()
+		timeResult := GetTimeString(timeNow, timeDbLast)
+		dataSlice := GetDataDay(timeResult)
+		<- ch1
+		DbEntry(dataSlice)
+		ch1 <- 1
+		time.Sleep(time.Second * 10)
+	}
+}
+
+func Sync(ch1 chan int) {
+	for {
+		ch1 <- 1
+		<- ch1
+	}
+}
+
 func main() {
-	timeNow, timeDbLast := GetTime()
-	timeResult := GetTimeString(timeNow, timeDbLast)
-	dataSlice := GetDataDay(timeResult)
-	DbEntry(dataSlice)
-	DbStat(TimeToString(timeNow), TimeToString(timeNow.Add(-24 * time.Hour)))
+	ch := make(chan int, 1)
+	var input int
+	fmt.Println("Для выхода нажмите 1, для вывода статистики нажмите 2.")
+	go Sync(ch)
+	go GetDataAndEntryInDb(ch)
+	for {
+		fmt.Scan(&input)
+		switch input {
+		case 1:
+			return
+		case 2:
+			<- ch
+			timeNow, _ := GetTime()
+			DbStat(TimeToString(timeNow), TimeToString(timeNow.Add(-24 * time.Hour)))
+			ch <- 1
+		default:
+			fmt.Println("Хорошая попытка, но нет.")
+		}
+	}
 }

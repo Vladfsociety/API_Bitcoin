@@ -101,8 +101,8 @@ func FeeTotalSatoshi(db *sql.DB, timeNowTime, timePastTime string) int32 {
   return FeeTotalSatoshiInt
 }
 
-func AvgTimeBetweenBlocks(db *sql.DB, timeNowTime, timePastTime string) float64 {
-  sqlStatement := `SELECT median_time FROM blocks WHERE median_time < $1 AND median_time > $2 ORDER BY median_time DESC;`
+/*func AvgTimeBetweenBlocks(db *sql.DB, timeNowTime, timePastTime string) float64 {
+  sqlStatement := `SELECT time FROM blocks WHERE time < $1 AND time > $2 ORDER BY time DESC;`
   timeBlocks := DbQueryLastDayRows(db, sqlStatement, timeNowTime, timePastTime)
   var sumTime int64 = 0
   var timeLater, timeEarlier time.Time
@@ -114,6 +114,19 @@ func AvgTimeBetweenBlocks(db *sql.DB, timeNowTime, timePastTime string) float64 
   }
   avgTime := float64(sumTime/int64(len(timeBlocks)-1))
   return avgTime
+}*/
+
+func AvgTimeBetweenBlocks(db *sql.DB, timeNowTime, timePastTime string) float64 {
+  sqlStatement := `SELECT count(*) FROM blocks WHERE time < $1 AND time > $2;`
+  countInt, err := strconv.ParseInt(DbQueryLastDayRow(db, sqlStatement, timeNowTime, timePastTime), 10, 64)
+  Check(err)
+  sqlStatement = `SELECT max(time) FROM blocks WHERE time < $1 AND time > $2;`
+  timeNow := StringToTime(DbQueryLastDayRow(db, sqlStatement, timeNowTime, timePastTime))
+  sqlStatement = `SELECT min(time) FROM blocks WHERE time < $1 AND time > $2;`
+  timePast := StringToTime(DbQueryLastDayRow(db, sqlStatement, timeNowTime, timePastTime))
+  timeDiff := timeNow.Sub(timePast)/time.Second
+  avgTime := int64(timeDiff)/(countInt-1)
+  return float64(avgTime)
 }
 
 func DbStat(timeNowTime, timePastTime string) {
@@ -123,8 +136,8 @@ func DbStat(timeNowTime, timePastTime string) {
   quantityTransactions := QuantityTransactions(db, timeNowTime, timePastTime)
   feeTotalSatoshi := FeeTotalSatoshi(db, timeNowTime, timePastTime)
   feeTotalUsd := FeeTotalUsd(db, timeNowTime, timePastTime)
-  avgtimeBlocks := AvgTimeBetweenBlocks(db, timeNowTime, timePastTime)
-  fmt.Printf("Количество блоков: %v\nКоличество транзакций: %v\nСредняя комиссия за транзакцию(сатоши): %v\nСредняя комиссия за транзакцию(USD): %.2f\nСреднее время между блоками(секунды): %.2f", quantityBlocks, quantityTransactions, feeTotalSatoshi, feeTotalUsd, avgtimeBlocks)
+  avgTimeBlocks := AvgTimeBetweenBlocks(db, timeNowTime, timePastTime)
+  fmt.Printf("Количество блоков: %v\nКоличество транзакций: %v\nСредняя комиссия за транзакцию(сатоши): %v\nСредняя комиссия за транзакцию(USD): %.2f\nСреднее время между блоками 1 (секунды): %.2f\n", quantityBlocks, quantityTransactions, feeTotalSatoshi, feeTotalUsd, avgTimeBlocks)
 }
 
 func DbClear() {
