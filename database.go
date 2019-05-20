@@ -3,7 +3,7 @@ package main
 import (
     "fmt"
     "time"
-    //"strings"
+    "strings"
     "strconv"
     "database/sql"
     _ "github.com/lib/pq"
@@ -73,9 +73,9 @@ func CountTransactions(db *sql.DB, timeNowTime, timePastTime string) int64 {
 
 func FeeTotalUSD(db *sql.DB, timeNowTime, timePastTime string) float64 {
   sqlStatement := `SELECT sum(fee_total_usd)/sum(transaction_count) FROM blocks WHERE time < $1 AND time > $2 ;`
-  feeTotalUsd, err := strconv.ParseFloat(DbQueryLastDay(db, sqlStatement, timeNowTime, timePastTime), 64)
+  feeTotalUSD, err := strconv.ParseFloat(DbQueryLastDay(db, sqlStatement, timeNowTime, timePastTime), 64)
   Check(err)
-  return feeTotalUsd
+  return feeTotalUSD
 }
 
 func FeeTotalBTC(db *sql.DB, timeNowTime, timePastTime string) float64 {
@@ -90,9 +90,9 @@ func AvgTimeBetweenBlocks(db *sql.DB, timeNowTime, timePastTime string) float64 
   countBlocks, err := strconv.ParseInt(DbQueryLastDay(db, sqlStatement, timeNowTime, timePastTime), 10, 64)
   Check(err)
   sqlStatement = `SELECT max(time) FROM blocks WHERE time < $1 AND time > $2;`
-  timeNow := StringToTime(DbQueryLastDay(db, sqlStatement, timeNowTime, timePastTime))
+  timeNow := DbStringToTime(DbQueryLastDay(db, sqlStatement, timeNowTime, timePastTime))
   sqlStatement = `SELECT min(time) FROM blocks WHERE time < $1 AND time > $2;`
-  timePast := StringToTime(DbQueryLastDay(db, sqlStatement, timeNowTime, timePastTime))
+  timePast := DbStringToTime(DbQueryLastDay(db, sqlStatement, timeNowTime, timePastTime))
   timeDiff := float64(timeNow.Sub(timePast)/time.Second)
   avgTime := timeDiff/float64(countBlocks-1)
   return avgTime
@@ -135,23 +135,37 @@ func OutputTotalBTC(db *sql.DB, timeNowTime, timePastTime string) float64 {
 
 func InputTotalUSD(db *sql.DB, timeNowTime, timePastTime string) float64 {
   sqlStatement := `SELECT sum(input_total_usd) FROM blocks WHERE time < $1 AND time > $2;`
-  inputTotalUsd, err := strconv.ParseFloat(DbQueryLastDay(db, sqlStatement, timeNowTime, timePastTime), 64)
+  inputTotalUSD, err := strconv.ParseFloat(DbQueryLastDay(db, sqlStatement, timeNowTime, timePastTime), 64)
   Check(err)
-  return inputTotalUsd
+  return inputTotalUSD
 }
 
 func OutputTotalUSD(db *sql.DB, timeNowTime, timePastTime string) float64 {
   sqlStatement := `SELECT sum(output_total_usd) FROM blocks WHERE time < $1 AND time > $2;`
-  outputTotalUsd, err := strconv.ParseFloat(DbQueryLastDay(db, sqlStatement, timeNowTime, timePastTime), 64)
+  outputTotalUSD, err := strconv.ParseFloat(DbQueryLastDay(db, sqlStatement, timeNowTime, timePastTime), 64)
   Check(err)
-  return outputTotalUsd
+  return outputTotalUSD
+}
+
+func GenerationBTC(db *sql.DB, timeNowTime, timePastTime string) float64 {
+  sqlStatement := `SELECT sum(generation) FROM blocks WHERE time < $1 AND time > $2;`
+  generationSatoshi, err := strconv.ParseFloat(DbQueryLastDay(db, sqlStatement, timeNowTime, timePastTime), 64)
+  Check(err)
+  return generationSatoshi/BTC
+}
+
+func GenerationUSD(db *sql.DB, timeNowTime, timePastTime string) float64 {
+  sqlStatement := `SELECT sum(generation_usd) FROM blocks WHERE time < $1 AND time > $2;`
+  generationUSD, err := strconv.ParseFloat(DbQueryLastDay(db, sqlStatement, timeNowTime, timePastTime), 64)
+  Check(err)
+  return generationUSD
 }
 
 func RewardBTC(db *sql.DB, timeNowTime, timePastTime string) float64 {
   sqlStatement := `SELECT sum(reward) FROM blocks WHERE time < $1 AND time > $2;`
-  rewardBTC, err := strconv.ParseInt(DbQueryLastDay(db, sqlStatement, timeNowTime, timePastTime), 10, 64)
+  rewardSatoshi, err := strconv.ParseInt(DbQueryLastDay(db, sqlStatement, timeNowTime, timePastTime), 10, 64)
   Check(err)
-  return float64(rewardBTC)/BTC
+  return float64(rewardSatoshi)/BTC
 }
 
 func RewardUSD(db *sql.DB, timeNowTime, timePastTime string) float64 {
@@ -164,7 +178,7 @@ func RewardUSD(db *sql.DB, timeNowTime, timePastTime string) float64 {
 func DbStat(timeNowTime, timePastTime string) {
   db := DbConnect()
   defer db.Close()
-  fmt.Printf("Статистика за последниее 24 часа:\nКоличество блоков: %v\nКоличество транзакций: %v\nСредняя комиссия за транзакцию(BTC): %.8f\nСредняя комиссия за транзакцию(USD): %.2f\nСреднее время между блоками(секунды): %.2f\nСредний размер блока(мбайты): %.2f\nКоличество входов во всех транзакциях блоков: %v\nКоличество выходов во всех транзакциях блоков: %v\nСумма входов во всех блоках(BTC): %.2f\nСумма выходов во всех блоках(BTC): %.2f\nСумма входов во всех блоках(USD): %.2f\nСумма выходов во всех блоках(USD): %.2f\nСуммарная награда майнеров(за блок + комиссия)(BTC): %.2f\nСуммарная награда майнеров(за блок + комиссия)(USD): %.2f\n", CountBlocks(db, timeNowTime, timePastTime), CountTransactions(db, timeNowTime, timePastTime), FeeTotalBTC(db, timeNowTime, timePastTime), FeeTotalUSD(db, timeNowTime, timePastTime), AvgTimeBetweenBlocks(db, timeNowTime, timePastTime), SizeMB(db, timeNowTime, timePastTime), InputCount(db, timeNowTime, timePastTime), OutputCount(db, timeNowTime, timePastTime), InputTotalBTC(db, timeNowTime, timePastTime), OutputTotalBTC(db, timeNowTime, timePastTime), InputTotalUSD(db, timeNowTime, timePastTime), OutputTotalUSD(db, timeNowTime, timePastTime), RewardBTC(db, timeNowTime, timePastTime), RewardUSD(db, timeNowTime, timePastTime))
+  fmt.Printf("Статистика за последниее 24 часа:\nКоличество блоков: %v\nКоличество транзакций: %v\nСредняя комиссия за транзакцию(BTC): %.8f\nСредняя комиссия за транзакцию(USD): %.2f\nСреднее время между блоками(секунды): %.2f\nСредний размер блока(мбайты): %.2f\nКоличество входов во всех транзакциях блоков: %v\nКоличество выходов во всех транзакциях блоков: %v\nСумма входов во всех блоках(BTC): %.2f\nСумма выходов во всех блоках(BTC): %.2f\nСумма входов во всех блоках(USD): %.2f\nСумма выходов во всех блоках(USD): %.2f\nСуммарная награда майнеров за нахождение блоков(BTC): %.2f\nСуммарная награда майнеров за нахождение блоков(USD): %.2f\nСуммарная награда майнеров(за блок + комиссия)(BTC): %.2f\nСуммарная награда майнеров(за блок + комиссия)(USD): %.2f\n", CountBlocks(db, timeNowTime, timePastTime), CountTransactions(db, timeNowTime, timePastTime), FeeTotalBTC(db, timeNowTime, timePastTime), FeeTotalUSD(db, timeNowTime, timePastTime), AvgTimeBetweenBlocks(db, timeNowTime, timePastTime), SizeMB(db, timeNowTime, timePastTime), InputCount(db, timeNowTime, timePastTime), OutputCount(db, timeNowTime, timePastTime), InputTotalBTC(db, timeNowTime, timePastTime), OutputTotalBTC(db, timeNowTime, timePastTime), InputTotalUSD(db, timeNowTime, timePastTime), OutputTotalUSD(db, timeNowTime, timePastTime), GenerationBTC(db, timeNowTime, timePastTime), GenerationUSD(db, timeNowTime, timePastTime), RewardBTC(db, timeNowTime, timePastTime), RewardUSD(db, timeNowTime, timePastTime))
 }
 
 func DbEmpty() bool {
@@ -179,10 +193,18 @@ func DbEmpty() bool {
   return false
 }
 
+func DbStringToTime(timeString string) time.Time {
+	timeString = timeString[0:len(timeString)-1]
+  timeString = strings.Join(strings.Split(timeString, "T"), " ")
+	time, err := time.Parse("2006-01-02 15:04:05", timeString)
+	Check(err)
+	return time
+}
+
 func DbLastTime() time.Time {
   db := DbConnect()
   defer db.Close()
   sqlStatement := `SELECT max(time) FROM blocks;`
-  timeLastDb := StringToTime(DbQuery(db, sqlStatement))
+  timeLastDb := DbStringToTime(DbQuery(db, sqlStatement))
   return timeLastDb
 }

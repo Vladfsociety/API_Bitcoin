@@ -89,7 +89,7 @@ func GetJsonResult(timeResult string) [][]byte {
   return jsonResult
 }
 
-func GetDataDay(timeResult string) []Block {
+func GetData(timeResult string) []Block {
   json := GetJsonResult(timeResult)
   gjson := GetGjsonResult(json)
   return GetSliceResult(gjson)
