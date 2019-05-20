@@ -1,10 +1,6 @@
 package main
 
 import (
-	//"fmt"
-	//"log"
-	//"time"
-	//"strings"
 	"io/ioutil"
 	"net/http"
 	"strconv"
@@ -27,23 +23,23 @@ func Check(err error) {
 }
 
 func GetSlice(gjson []gjson.Result) []Block {
-  dataSlice := make([]Block, len(gjson[0].Array()))
+  data := make([]Block, len(gjson[0].Array()))
   for block, _ := range gjson[0].Array() {
-    dataSlice[block].attribute = make([]interface{}, attrCount)
+    data[block].attribute = make([]interface{}, attrCount)
     for attr, _ := range gjson {
-      dataSlice[block].attribute[attr] = gjson[attr].Array()[block].Raw
+      data[block].attribute[attr] = gjson[attr].Array()[block].Raw
     }
   }
-  return dataSlice
+  return data
 }
 
 func GetSliceResult(gjsonResult [][]gjson.Result) []Block {
-  dataSliceResult := make([]Block, 0)
-  for i, _ := range gjsonResult {
-    dataSlice := GetSlice(gjsonResult[i])
-    dataSliceResult = append(dataSliceResult, dataSlice...)
+  dataResult := make([]Block, 0)
+  for index, _ := range gjsonResult {
+    data := GetSlice(gjsonResult[index])
+    dataResult = append(dataResult, data...)
   }
-  return dataSliceResult
+  return dataResult
 }
 
 func GetGjsonResult(jsonResult [][]byte) [][]gjson.Result {

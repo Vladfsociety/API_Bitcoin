@@ -175,10 +175,12 @@ func RewardUSD(db *sql.DB, timeNowTime, timePastTime string) float64 {
   return rewardUSD
 }
 
-func DbStat(timeNowTime, timePastTime string) {
+func DbStat(timeNowTime, timePastTime string) []interface{} {
   db := DbConnect()
   defer db.Close()
-  fmt.Printf("Статистика за последниее 24 часа:\nКоличество блоков: %v\nКоличество транзакций: %v\nСредняя комиссия за транзакцию(BTC): %.8f\nСредняя комиссия за транзакцию(USD): %.2f\nСреднее время между блоками(секунды): %.2f\nСредний размер блока(мбайты): %.2f\nКоличество входов во всех транзакциях блоков: %v\nКоличество выходов во всех транзакциях блоков: %v\nСумма входов во всех блоках(BTC): %.2f\nСумма выходов во всех блоках(BTC): %.2f\nСумма входов во всех блоках(USD): %.2f\nСумма выходов во всех блоках(USD): %.2f\nСуммарная награда майнеров за нахождение блоков(BTC): %.2f\nСуммарная награда майнеров за нахождение блоков(USD): %.2f\nСуммарная награда майнеров(за блок + комиссия)(BTC): %.2f\nСуммарная награда майнеров(за блок + комиссия)(USD): %.2f\n", CountBlocks(db, timeNowTime, timePastTime), CountTransactions(db, timeNowTime, timePastTime), FeeTotalBTC(db, timeNowTime, timePastTime), FeeTotalUSD(db, timeNowTime, timePastTime), AvgTimeBetweenBlocks(db, timeNowTime, timePastTime), SizeMB(db, timeNowTime, timePastTime), InputCount(db, timeNowTime, timePastTime), OutputCount(db, timeNowTime, timePastTime), InputTotalBTC(db, timeNowTime, timePastTime), OutputTotalBTC(db, timeNowTime, timePastTime), InputTotalUSD(db, timeNowTime, timePastTime), OutputTotalUSD(db, timeNowTime, timePastTime), GenerationBTC(db, timeNowTime, timePastTime), GenerationUSD(db, timeNowTime, timePastTime), RewardBTC(db, timeNowTime, timePastTime), RewardUSD(db, timeNowTime, timePastTime))
+  data := make([]interface{}, 0)
+  data = append(data, CountBlocks(db, timeNowTime, timePastTime), CountTransactions(db, timeNowTime, timePastTime), FeeTotalBTC(db, timeNowTime, timePastTime), FeeTotalUSD(db, timeNowTime, timePastTime), AvgTimeBetweenBlocks(db, timeNowTime, timePastTime), SizeMB(db, timeNowTime, timePastTime), InputCount(db, timeNowTime, timePastTime), OutputCount(db, timeNowTime, timePastTime), InputTotalBTC(db, timeNowTime, timePastTime), OutputTotalBTC(db, timeNowTime, timePastTime), InputTotalUSD(db, timeNowTime, timePastTime), OutputTotalUSD(db, timeNowTime, timePastTime), GenerationBTC(db, timeNowTime, timePastTime), GenerationUSD(db, timeNowTime, timePastTime), RewardBTC(db, timeNowTime, timePastTime), RewardUSD(db, timeNowTime, timePastTime))
+  return data
 }
 
 func DbEmpty() bool {
