@@ -76,20 +76,20 @@ func Sync(ch1 chan int) {
 func main() {
 	FirstStartAfterOff()
 	ch := make(chan int, 1)
+	fmt.Println("Для вывода статистики нажмите 1, для выхода нажмите 2.")
 	var input int
-	fmt.Println("Для выхода нажмите 1, для вывода статистики нажмите 2.")
 	go Sync(ch)
 	go GetDataAndEntryInDb(ch)
 	for {
 		fmt.Scan(&input)
 		switch input {
 		case 1:
-			return
-		case 2:
 			<- ch
 			timeNow, _ := GetTime()
 			DbStat(TimeToString(timeNow), TimeToString(timeNow.Add(-24 * time.Hour)))
 			ch <- 1
+		case 2:
+			return
 		default:
 			fmt.Println("Хорошая попытка, но нет.")
 		}

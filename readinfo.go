@@ -13,7 +13,7 @@ import (
 
 const(
     stepOffset = 100
-    attrQuantity = 18
+    attrCount = 18
   )
 
 type Block struct {
@@ -29,7 +29,7 @@ func Check(err error) {
 func GetSlice(gjson []gjson.Result) []Block {
   dataSlice := make([]Block, len(gjson[0].Array()))
   for block, _ := range gjson[0].Array() {
-    dataSlice[block].attribute = make([]interface{}, attrQuantity)
+    dataSlice[block].attribute = make([]interface{}, attrCount)
     for attr, _ := range gjson {
       dataSlice[block].attribute[attr] = gjson[attr].Array()[block].Raw
     }
@@ -88,7 +88,6 @@ func GetJsonResult(timeResult string) [][]byte {
   }
   return jsonResult
 }
-
 
 func GetDataDay(timeResult string) []Block {
   json := GetJsonResult(timeResult)
