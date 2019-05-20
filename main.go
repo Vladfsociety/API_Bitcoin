@@ -47,6 +47,13 @@ func GetTimeString(timeNow, timeDbLast time.Time) string {
 	return timeResult
 }
 
+func FirstStartAfterOff() {
+	timeNow, timeDbLast := GetTime()
+	timeResult := GetTimeString(timeNow, timeDbLast)
+	dataSlice := GetDataDay(timeResult)
+	DbEntry(dataSlice)
+}
+
 func GetDataAndEntryInDb(ch1 chan int) {
 	for {
 		timeNow, timeDbLast := GetTime()
@@ -55,7 +62,7 @@ func GetDataAndEntryInDb(ch1 chan int) {
 		<- ch1
 		DbEntry(dataSlice)
 		ch1 <- 1
-		time.Sleep(time.Second * 10)
+		time.Sleep(time.Second * 20)
 	}
 }
 
@@ -67,6 +74,7 @@ func Sync(ch1 chan int) {
 }
 
 func main() {
+	FirstStartAfterOff()
 	ch := make(chan int, 1)
 	var input int
 	fmt.Println("Для выхода нажмите 1, для вывода статистики нажмите 2.")
