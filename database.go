@@ -36,7 +36,7 @@ func DbEntry(data []Block) {
   sqlStatement := `INSERT INTO blocks (id, time, median_time, size, difficulty, transaction_count, input_count, output_count, input_total, input_total_usd, output_total, output_total_usd, fee_total, fee_total_usd, generation, generation_usd, reward, reward_usd)
   VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18)`
   for block := 0; block < len(data); block++ {
-    _, err := db.Exec(sqlStatement, data[block].attribute...)
+    _, err := db.Exec(sqlStatement, data[block].attributes...)
     Check(err)
   }
 }

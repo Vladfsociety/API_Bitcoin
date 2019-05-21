@@ -1,6 +1,7 @@
 package main
 
 import (
+	"fmt"
 	"io/ioutil"
 	"net/http"
 	"strconv"
@@ -13,7 +14,7 @@ const(
   )
 
 type Block struct {
-  attribute []interface{}
+  attributes []interface{}
 }
 
 func Check(err error) {
@@ -25,9 +26,9 @@ func Check(err error) {
 func GetSlice(gjson []gjson.Result) []Block {
   data := make([]Block, len(gjson[0].Array()))
   for block, _ := range gjson[0].Array() {
-    data[block].attribute = make([]interface{}, attrCount)
+    data[block].attributes = make([]interface{}, attrCount)
     for attr, _ := range gjson {
-      data[block].attribute[attr] = gjson[attr].Array()[block].Raw
+      data[block].attributes[attr] = gjson[attr].Array()[block].Raw
     }
   }
   return data
@@ -62,8 +63,15 @@ func Empty(json []byte) bool {
 func GetJson(timeResult string, offset int) []byte {
   offsetString := strconv.Itoa(offset)
   resp, err := http.Get("https://api.blockchair.com/bitcoin/blocks?q=time(" + timeResult + ")&s=time(desc)&limit=100&offset=" + offsetString)
-  Check(err)
-  json, err := ioutil.ReadAll(resp.Body)
+	if err != nil {
+		json, _ := ioutil.ReadAll(resp.Body)
+		defer resp.Body.Close()
+		gjson := gjson.GetBytes(json, "context.code")
+		fmt.Println(gjson.Raw)
+	  panic(err)
+	}
+	json, err := ioutil.ReadAll(resp.Body)
+	defer resp.Body.Close()
   Check(err)
   if !gjson.ValidBytes(json) {
     panic("invalid json")
