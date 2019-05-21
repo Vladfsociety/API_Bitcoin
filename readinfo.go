@@ -65,7 +65,7 @@ func GetJson(timeResult string, offset int) []byte {
   Check(err)
   json, err := ioutil.ReadAll(resp.Body)
   Check(err)
-  if !gjson.Valid(string(json)) {
+  if !gjson.ValidBytes(json) {
     panic("invalid json")
   }
   return json
