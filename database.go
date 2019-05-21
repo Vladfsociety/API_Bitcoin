@@ -57,11 +57,13 @@ func DbQuery(db *sql.DB, sqlStatement string) string {
   return result
 }
 
-func CountBlocks(db *sql.DB, timeNowTime, timePastTime string) int {
+func CountBlocks(db *sql.DB, timeNowTime, timePastTime string) (int, error) {
   sqlStatement := `SELECT count(*) FROM blocks WHERE time < $1 AND time > $2 ;`
   countBlocks, err := strconv.Atoi(DbQueryLastDay(db, sqlStatement, timeNowTime, timePastTime))
-  Check(err)
-  return countBlocks
+  if err != nil {
+    return 0, Wrap(err, "Ошибка конвертации строки в инт")
+  }
+  return countBlocks, nil
 }
 
 func CountTransactions(db *sql.DB, timeNowTime, timePastTime string) int64 {
@@ -175,12 +177,17 @@ func RewardUSD(db *sql.DB, timeNowTime, timePastTime string) float64 {
   return rewardUSD
 }
 
-func DbStat(timeNowTime, timePastTime string) []interface{} {
+func DbStat(timeNowTime, timePastTime string) ([]interface{}, error) {
   db := DbConnect()
   defer db.Close()
   data := make([]interface{}, 0)
-  data = append(data, CountBlocks(db, timeNowTime, timePastTime), CountTransactions(db, timeNowTime, timePastTime), FeeTotalBTC(db, timeNowTime, timePastTime), FeeTotalUSD(db, timeNowTime, timePastTime), AvgTimeBetweenBlocks(db, timeNowTime, timePastTime), SizeMB(db, timeNowTime, timePastTime), InputCount(db, timeNowTime, timePastTime), OutputCount(db, timeNowTime, timePastTime), InputTotalBTC(db, timeNowTime, timePastTime), OutputTotalBTC(db, timeNowTime, timePastTime), InputTotalUSD(db, timeNowTime, timePastTime), OutputTotalUSD(db, timeNowTime, timePastTime), GenerationBTC(db, timeNowTime, timePastTime), GenerationUSD(db, timeNowTime, timePastTime), RewardBTC(db, timeNowTime, timePastTime), RewardUSD(db, timeNowTime, timePastTime))
-  return data
+  var err error
+  countBlocks, err := CountBlocks(db, timeNowTime, timePastTime)
+  if err != nil {
+    return data, Wrap(err, "Ошибка при выполнении функции CountBlocks")
+  }
+  data = append(data, countBlocks, CountTransactions(db, timeNowTime, timePastTime), FeeTotalBTC(db, timeNowTime, timePastTime), FeeTotalUSD(db, timeNowTime, timePastTime), AvgTimeBetweenBlocks(db, timeNowTime, timePastTime), SizeMB(db, timeNowTime, timePastTime), InputCount(db, timeNowTime, timePastTime), OutputCount(db, timeNowTime, timePastTime), InputTotalBTC(db, timeNowTime, timePastTime), OutputTotalBTC(db, timeNowTime, timePastTime), InputTotalUSD(db, timeNowTime, timePastTime), OutputTotalUSD(db, timeNowTime, timePastTime), GenerationBTC(db, timeNowTime, timePastTime), GenerationUSD(db, timeNowTime, timePastTime), RewardBTC(db, timeNowTime, timePastTime), RewardUSD(db, timeNowTime, timePastTime))
+  return data, nil
 }
 
 func DbEmpty() bool {
