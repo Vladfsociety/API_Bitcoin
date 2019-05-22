@@ -17,12 +17,6 @@ type Block struct {
   attributes []interface{}
 }
 
-func Check(err error) {
-	if err != nil {
-    panic(err)
-  }
-}
-
 func GetSlice(gjson []gjson.Result) []Block {
   data := make([]Block, len(gjson[0].Array()))
   for block, _ := range gjson[0].Array() {
@@ -60,41 +54,50 @@ func Empty(json []byte) bool {
   return false
 }
 
-func GetJson(timeResult string, offset int) []byte {
+func GetJson(timeResult string, offset int) ([]byte, error) {
   offsetString := strconv.Itoa(offset)
-  resp, err := http.Get("https://api.blockchair.com/bitcoin/blocks?q=time(" + timeResult + ")&s=time(desc)&limit=100&offset=" + offsetString)
+	query := "https://api.blockchair.com/bitcoin/blocks?q=time(" + timeResult + ")&s=time(desc)&limit=100&offset=" + offsetString
+  resp, err := http.Get(query)
 	if err != nil {
 		json, _ := ioutil.ReadAll(resp.Body)
 		defer resp.Body.Close()
 		gjson := gjson.GetBytes(json, "context.code")
 		fmt.Println(gjson.Raw)
-	  panic(err)
+	  return make([]byte, 0), Wrapf(err, "GetJson: Ошибка при запросе к %s", query)
 	}
 	json, err := ioutil.ReadAll(resp.Body)
 	defer resp.Body.Close()
-  Check(err)
+	if err != nil {
+		return json, Wrap(err, "GetJson: Ошибка при считывании тела response в []byte")
+	}
   if !gjson.ValidBytes(json) {
-    panic("invalid json")
+    return json, NewErr("GetJson: Получен неправильный json")
   }
-  return json
+  return json, nil
 }
 
-func GetJsonResult(timeResult string) [][]byte {
+func GetJsonResult(timeResult string) ([][]byte, error) {
   jsonResult := make([][]byte, 0)
   offset := 0
   for {
-    json := GetJson(timeResult, offset)
+    json, err := GetJson(timeResult, offset)
+		if err != nil {
+			return jsonResult, Wrap(err, "GetJsonResult")
+		}
     if Empty(json) {
       break
     }
     jsonResult = append(jsonResult, json)
     offset += stepOffset
   }
-  return jsonResult
+  return jsonResult, nil
 }
 
-func GetData(timeResult string) []Block {
-  json := GetJsonResult(timeResult)
+func GetData(timeResult string) ([]Block, error) {
+  json, err := GetJsonResult(timeResult)
+	if err != nil {
+		return make([]Block, 0), Wrap(err, "GetData")
+	}
   gjson := GetGjsonResult(json)
-  return GetSliceResult(gjson)
+  return GetSliceResult(gjson), nil
 }

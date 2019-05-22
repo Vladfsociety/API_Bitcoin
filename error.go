@@ -1,6 +1,9 @@
 package main
 
-import "github.com/pkg/errors"
+import(
+   "fmt"
+   "github.com/pkg/errors"
+ )
 
 const(
   NoType = ErrorType(iota)
@@ -27,6 +30,14 @@ func (typer ErrorType) Wrapf(err error, msg string, args ...interface{}) error {
    return customError{errorType: typer, originalError: newErr}
 }
 
+func NewErr(msg string) error {
+   return customError{errorType: NoType, originalError: errors.New(msg)}
+}
+
+func NewErrf(msg string, args ...interface{}) error {
+   return customError{errorType: NoType, originalError: errors.New(fmt.Sprintf(msg, args...))}
+}
+
 func Wrap(err error, msg string) error {
    return Wrapf(err, msg)
 }
@@ -47,4 +58,10 @@ func GetType(err error) ErrorType {
       return customErr.errorType
    }
    return NoType
+}
+
+func Check(err error, msg string) {
+	if err != nil {
+    panic(err)
+  }
 }
