@@ -1,7 +1,6 @@
 package main
 
 import (
-	"fmt"
 	"io/ioutil"
 	"net/http"
 	"strconv"
@@ -59,14 +58,10 @@ func GetJson(timeResult string, offset int) ([]byte, error) {
 	query := "https://api.blockchair.com/bitcoin/blocks?q=time(" + timeResult + ")&s=time(desc)&limit=100&offset=" + offsetString
   resp, err := http.Get(query)
 	if err != nil {
-		json, _ := ioutil.ReadAll(resp.Body)
-		defer resp.Body.Close()
-		gjson := gjson.GetBytes(json, "context.code")
-		fmt.Println(gjson.Raw)
 	  return make([]byte, 0), Wrapf(err, "GetJson: Ошибка при запросе к %s", query)
 	}
-	json, err := ioutil.ReadAll(resp.Body)
 	defer resp.Body.Close()
+	json, err := ioutil.ReadAll(resp.Body)
 	if err != nil {
 		return json, Wrap(err, "GetJson: Ошибка при считывании тела response в []byte")
 	}
@@ -101,3 +96,5 @@ func GetData(timeResult string) ([]Block, error) {
   gjson := GetGjsonResult(json)
   return GetSliceResult(gjson), nil
 }
+
+/*2019/05/23 15:05:58 GetDataAndEntryInDb: GetData: GetJsonResult: GetJson: Ошибка при запросе к https://api.blockchair.com/bitcoin/blocks?q=time(2019-05-23 11:57:09..2019-05-23 12:05:38)&s=time(desc)&limit=100&offset=0: Get https://api.blockchair.com/bitcoin/blocks?q=time(2019-05-23 11:57:09..2019-05-23 12:05:38)&s=time(desc)&limit=100&offset=0: read tcp 192.168.0.101:63156->194.67.203.85:443: wsarecv: A connection attempt failed because the connected party did not properly respond after a period of time, or established connection failed because connected host has failed to respond.*/

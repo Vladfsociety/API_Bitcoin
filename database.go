@@ -4,6 +4,7 @@ import (
     "fmt"
     "time"
     "strings"
+    "strconv"
     "database/sql"
     _ "github.com/lib/pq"
 )
@@ -21,15 +22,34 @@ const (
   MB = 1000000
 )
 
-func DoFuncCheckErr(fn func(*sql.DB, string, string, string) (string, error), db *sql.DB, sqlStatement string, timeNow string, timePast string, message string, err error) (string, error) {
-
+func StringToIntCheckErr(valueStr string, message string, err error) (int64, error) {
+	if err != nil {
+		return 0, err
+	}
+	valueInt, err := strconv.ParseInt(valueStr, 10, 64)
   if err != nil {
-    return "", err
+    return 0, Wrap(Wrapf(err, "StringToIntCheckErr: Ошибка конвертации string в int64, значения %v", valueStr), message)
   }
-  var result string
-  result, err = fn(db, sqlStatement, timeNow, timePast)
+	return valueInt, nil
+}
+
+func StringToFloatCheckErr(valueStr string, message string, err error) (float64, error) {
+	if err != nil {
+		return 0, err
+	}
+	valuefloat, err := strconv.ParseFloat(valueStr, 64)
   if err != nil {
-    return "", Wrap(err, message)
+    return 0, Wrap(Wrapf(err, "StringToFloatCheckErr: Ошибка конвертации string в float64, значения %v", valueStr), message)
+  }
+	return valuefloat, nil
+}
+
+func DoFuncCheckErr(fn func(*sql.DB, string, string, string) (string, error), db *sql.DB, sqlStatement string, timeNow string, timePast string, message string) (string, error) {
+
+  var result string
+  result, err := fn(db, sqlStatement, timeNow, timePast)
+  if err != nil {
+    return "", Wrap(Wrap(err, "DoFuncCheckErr"), message)
   }
   return result, nil
 }
@@ -40,7 +60,7 @@ func DoManyFuncs(db *sql.DB, timeNow string, timePast string, message string, fn
   for _, fn := range fncs {
     value, err := fn(db, timeNow, timePast)
     if err != nil {
-      return data, Wrap(err, message)
+      return data, Wrap(Wrap(err, "DoManyFuncs"), message)
     }
     data = append(data, value)
   }
@@ -97,36 +117,38 @@ func DbQuery(db *sql.DB, sqlStatement string) (string, error) {
 
 func CountBlocks(db *sql.DB, timeNowTime, timePastTime string) (interface{}, error) {
   sqlStatement := `SELECT count(*) FROM blocks WHERE time < $1 AND time > $2 ;`
-  var err error
-  countBlocks, err := DoFuncCheckErr(DbQueryDay, db, sqlStatement, timeNowTime, timePastTime, "CountBlocks", err)
+  countBlocks, err := DoFuncCheckErr(DbQueryDay, db, sqlStatement, timeNowTime, timePastTime, "CountBlocks")
   return StringToIntCheckErr(countBlocks, "CountBlocks", err)
 }
 
 func CountTransactions(db *sql.DB, timeNowTime, timePastTime string) (interface{}, error) {
   sqlStatement := `SELECT sum(transaction_count) FROM blocks WHERE time < $1 AND time > $2 ;`
-  var err error
-  countTransactions, err := DoFuncCheckErr(DbQueryDay, db, sqlStatement, timeNowTime, timePastTime, "CountTransactions", err)
+  countTransactions, err := DoFuncCheckErr(DbQueryDay, db, sqlStatement, timeNowTime, timePastTime, "CountTransactions")
   return StringToIntCheckErr(countTransactions, "CountTransactions", err)
 }
 
 func FeeTotalUSD(db *sql.DB, timeNowTime, timePastTime string) (interface{}, error) {
   sqlStatement := `SELECT sum(fee_total_usd)/sum(transaction_count) FROM blocks WHERE time < $1 AND time > $2 ;`
-  var err error
-  feeTotalUSD, err := DoFuncCheckErr(DbQueryDay, db, sqlStatement, timeNowTime, timePastTime, "FeeTotalUSD", err)
+  feeTotalUSD, err := DoFuncCheckErr(DbQueryDay, db, sqlStatement, timeNowTime, timePastTime, "FeeTotalUSD")
   return StringToFloatCheckErr(feeTotalUSD, "FeeTotalUSD", err)
 }
 
 func FeeTotalBTC(db *sql.DB, timeNowTime, timePastTime string) (interface{}, error) {
   sqlStatement := `SELECT sum(fee_total)/sum(transaction_count) FROM blocks WHERE time < $1 AND time > $2 ;`
-  var err error
-  feeTotalSatoshi, err := DoFuncCheckErr(DbQueryDay, db, sqlStatement, timeNowTime, timePastTime, "FeeTotalBTC", err)
-  return StringToFloatCheckErr(feeTotalSatoshi, "FeeTotalBTC", err)
+  feeTotalSatoshiString, err := DoFuncCheckErr(DbQueryDay, db, sqlStatement, timeNowTime, timePastTime, "FeeTotalBTC")
+  feeTotalSatoshi, err := StringToFloatCheckErr(feeTotalSatoshiString, "FeeTotalBTC", err)
+  if err != nil {
+    return 0.0, err
+  }
+  return float64(feeTotalSatoshi)/BTC, nil
 }
 
 func MaxTimeDay(db *sql.DB, timeNowTime, timePastTime string) (time.Time, error) {
   sqlStatement := `SELECT max(time) FROM blocks WHERE time < $1 AND time > $2;`
-  var err error
-  timeNowString, err := DoFuncCheckErr(DbQueryDay, db, sqlStatement, timeNowTime, timePastTime, "MaxTimeDay", err)
+  timeNowString, err := DoFuncCheckErr(DbQueryDay, db, sqlStatement, timeNowTime, timePastTime, "MaxTimeDay")
+  if err != nil {
+    return time.Now(), err
+  }
   timeNow, err := DbStringToTime(timeNowString)
   if err != nil {
     return timeNow, Wrap(err, "MaxTimeDay")
@@ -136,8 +158,10 @@ func MaxTimeDay(db *sql.DB, timeNowTime, timePastTime string) (time.Time, error)
 
 func MinTimeDay(db *sql.DB, timeNowTime, timePastTime string) (time.Time, error) {
   sqlStatement := `SELECT min(time) FROM blocks WHERE time < $1 AND time > $2;`
-  var err error
-  timePastString, err := DoFuncCheckErr(DbQueryDay, db, sqlStatement, timeNowTime, timePastTime, "MinTimeDay", err)
+  timePastString, err := DoFuncCheckErr(DbQueryDay, db, sqlStatement, timeNowTime, timePastTime, "MinTimeDay")
+  if err != nil {
+    return time.Now(), err
+  }
   timePast, err := DbStringToTime(timePastString)
   if err != nil {
     return timePast, Wrap(err, "MinTimeDay")
@@ -165,29 +189,25 @@ func AvgTimeBetweenBlocks(db *sql.DB, timeNowTime, timePastTime string) (interfa
 
 func SizeMB(db *sql.DB, timeNowTime, timePastTime string) (interface{}, error) {
   sqlStatement := `SELECT avg(size) FROM blocks WHERE time < $1 AND time > $2;`
-  var err error
-  size, err := DoFuncCheckErr(DbQueryDay, db, sqlStatement, timeNowTime, timePastTime, "SizeMB", err)
+  size, err := DoFuncCheckErr(DbQueryDay, db, sqlStatement, timeNowTime, timePastTime, "SizeMB")
   return StringToFloatCheckErr(size, "SizeMB", err)
 }
 
 func InputCount(db *sql.DB, timeNowTime, timePastTime string) (interface{}, error) {
   sqlStatement := `SELECT sum(input_count) FROM blocks WHERE time < $1 AND time > $2;`
-  var err error
-  inputCount, err := DoFuncCheckErr(DbQueryDay, db, sqlStatement, timeNowTime, timePastTime, "InputCount", err)
+  inputCount, err := DoFuncCheckErr(DbQueryDay, db, sqlStatement, timeNowTime, timePastTime, "InputCount")
   return StringToIntCheckErr(inputCount, "InputCount", err)
 }
 
 func OutputCount(db *sql.DB, timeNowTime, timePastTime string) (interface{}, error) {
   sqlStatement := `SELECT sum(output_count) FROM blocks WHERE time < $1 AND time > $2;`
-  var err error
-  outputCount, err := DoFuncCheckErr(DbQueryDay, db, sqlStatement, timeNowTime, timePastTime, "OutputCount", err)
+  outputCount, err := DoFuncCheckErr(DbQueryDay, db, sqlStatement, timeNowTime, timePastTime, "OutputCount")
   return StringToIntCheckErr(outputCount, "OutputCount", err)
 }
 
 func InputTotalBTC(db *sql.DB, timeNowTime, timePastTime string) (interface{}, error) {
   sqlStatement := `SELECT sum(input_total) FROM blocks WHERE time < $1 AND time > $2;`
-  var err error
-  inputTotalSatoshiString, err := DoFuncCheckErr(DbQueryDay, db, sqlStatement, timeNowTime, timePastTime, "InputTotalBTC", err)
+  inputTotalSatoshiString, err := DoFuncCheckErr(DbQueryDay, db, sqlStatement, timeNowTime, timePastTime, "InputTotalBTC")
   inputTotalSatoshi, err := StringToIntCheckErr(inputTotalSatoshiString, "InputTotalBTC", err)
   if err != nil {
     return 0.0, err
@@ -197,8 +217,7 @@ func InputTotalBTC(db *sql.DB, timeNowTime, timePastTime string) (interface{}, e
 
 func OutputTotalBTC(db *sql.DB, timeNowTime, timePastTime string) (interface{}, error) {
   sqlStatement := `SELECT sum(output_total) FROM blocks WHERE time < $1 AND time > $2;`
-  var err error
-  outputTotalSatoshiString, err := DoFuncCheckErr(DbQueryDay, db, sqlStatement, timeNowTime, timePastTime, "OutputTotalBTC", err)
+  outputTotalSatoshiString, err := DoFuncCheckErr(DbQueryDay, db, sqlStatement, timeNowTime, timePastTime, "OutputTotalBTC")
   outputTotalSatoshi, err := StringToIntCheckErr(outputTotalSatoshiString, "OutputTotalBTC", err)
   if err != nil {
     return 0.0, err
@@ -208,22 +227,19 @@ func OutputTotalBTC(db *sql.DB, timeNowTime, timePastTime string) (interface{}, 
 
 func InputTotalUSD(db *sql.DB, timeNowTime, timePastTime string) (interface{}, error) {
   sqlStatement := `SELECT sum(input_total_usd) FROM blocks WHERE time < $1 AND time > $2;`
-  var err error
-  inputTotalUSD, err := DoFuncCheckErr(DbQueryDay, db, sqlStatement, timeNowTime, timePastTime, "InputTotalUSD", err)
+  inputTotalUSD, err := DoFuncCheckErr(DbQueryDay, db, sqlStatement, timeNowTime, timePastTime, "InputTotalUSD")
   return StringToFloatCheckErr(inputTotalUSD, "InputTotalUSD", err)
 }
 
 func OutputTotalUSD(db *sql.DB, timeNowTime, timePastTime string) (interface{}, error) {
   sqlStatement := `SELECT sum(output_total_usd) FROM blocks WHERE time < $1 AND time > $2;`
-  var err error
-  outputTotalUSD, err := DoFuncCheckErr(DbQueryDay, db, sqlStatement, timeNowTime, timePastTime, "OutputTotalUSD", err)
+  outputTotalUSD, err := DoFuncCheckErr(DbQueryDay, db, sqlStatement, timeNowTime, timePastTime, "OutputTotalUSD")
   return StringToFloatCheckErr(outputTotalUSD, "OutputTotalUSD", err)
 }
 
 func GenerationBTC(db *sql.DB, timeNowTime, timePastTime string) (interface{}, error) {
   sqlStatement := `SELECT sum(generation) FROM blocks WHERE time < $1 AND time > $2;`
-  var err error
-  generationSatoshiString, err := DoFuncCheckErr(DbQueryDay, db, sqlStatement, timeNowTime, timePastTime, "GenerationBTC", err)
+  generationSatoshiString, err := DoFuncCheckErr(DbQueryDay, db, sqlStatement, timeNowTime, timePastTime, "GenerationBTC")
   generationSatoshi, err := StringToIntCheckErr(generationSatoshiString, "GenerationBTC", err)
   if err != nil {
     return 0.0, err
@@ -233,15 +249,13 @@ func GenerationBTC(db *sql.DB, timeNowTime, timePastTime string) (interface{}, e
 
 func GenerationUSD(db *sql.DB, timeNowTime, timePastTime string) (interface{}, error) {
   sqlStatement := `SELECT sum(generation_usd) FROM blocks WHERE time < $1 AND time > $2;`
-  var err error
-  generationUSD, err := DoFuncCheckErr(DbQueryDay, db, sqlStatement, timeNowTime, timePastTime, "GenerationUSD", err)
+  generationUSD, err := DoFuncCheckErr(DbQueryDay, db, sqlStatement, timeNowTime, timePastTime, "GenerationUSD")
   return StringToFloatCheckErr(generationUSD, "GenerationUSD", err)
 }
 
 func RewardBTC(db *sql.DB, timeNowTime, timePastTime string) (interface{}, error) {
   sqlStatement := `SELECT sum(reward) FROM blocks WHERE time < $1 AND time > $2;`
-  var err error
-  rewardSatoshiString, err := DoFuncCheckErr(DbQueryDay, db, sqlStatement, timeNowTime, timePastTime, "RewardBTC", err)
+  rewardSatoshiString, err := DoFuncCheckErr(DbQueryDay, db, sqlStatement, timeNowTime, timePastTime, "RewardBTC")
   rewardSatoshi, err := StringToIntCheckErr(rewardSatoshiString, "RewardBTC", err)
   if err != nil {
     return 0.0, err
@@ -251,8 +265,7 @@ func RewardBTC(db *sql.DB, timeNowTime, timePastTime string) (interface{}, error
 
 func RewardUSD(db *sql.DB, timeNowTime, timePastTime string) (interface{}, error) {
   sqlStatement := `SELECT sum(reward_usd) FROM blocks WHERE time < $1 AND time > $2;`
-  var err error
-  rewardUSD, err := DoFuncCheckErr(DbQueryDay, db, sqlStatement, timeNowTime, timePastTime, "RewardUSD", err)
+  rewardUSD, err := DoFuncCheckErr(DbQueryDay, db, sqlStatement, timeNowTime, timePastTime, "RewardUSD")
   return StringToFloatCheckErr(rewardUSD, "RewardUSD", err)
 }
 
@@ -264,72 +277,6 @@ func DbStat(timeNow, timePast string) ([]interface{}, error) {
   }
   data, err := DoManyFuncs(db, timeNow, timePast, "DbStat", CountBlocks, CountTransactions, FeeTotalBTC, FeeTotalUSD, AvgTimeBetweenBlocks, SizeMB, InputCount, OutputCount, InputTotalBTC, OutputTotalBTC, InputTotalUSD, OutputTotalUSD, GenerationBTC, GenerationUSD, RewardBTC, RewardUSD)
   return data, err
-  /*
-  countBlocks, err := CountBlocks(db, timeNowTime, timePastTime)
-  if err != nil {
-    return data, Wrap(err, "DbStat")
-  }
-  countTransactions, err := CountTransactions(db, timeNowTime, timePastTime)
-  if err != nil {
-    return data, Wrap(err, "DbStat")
-  }
-  feeTotalBTC, err := FeeTotalBTC(db, timeNowTime, timePastTime)
-  if err != nil {
-    return data, Wrap(err, "DbStat")
-  }
-  feeTotalUSD, err := FeeTotalUSD(db, timeNowTime, timePastTime)
-  if err != nil {
-    return data, Wrap(err, "DbStat")
-  }
-  avgTimeBetweenBlocks, err := AvgTimeBetweenBlocks(db, timeNowTime, timePastTime)
-  if err != nil {
-    return data, Wrap(err, "DbStat")
-  }
-  sizeMB, err := SizeMB(db, timeNowTime, timePastTime)
-  if err != nil {
-    return data, Wrap(err, "DbStat")
-  }
-  inputCount, err := InputCount(db, timeNowTime, timePastTime)
-  if err != nil {
-    return data, Wrap(err, "DbStat")
-  }
-  outputCount, err := OutputCount(db, timeNowTime, timePastTime)
-  if err != nil {
-    return data, Wrap(err, "DbStat")
-  }
-  inputTotalBTC, err := InputTotalBTC(db, timeNowTime, timePastTime)
-  if err != nil {
-    return data, Wrap(err, "DbStat")
-  }
-  outputTotalBTC, err := OutputTotalBTC(db, timeNowTime, timePastTime)
-  if err != nil {
-    return data, Wrap(err, "DbStat")
-  }
-  inputTotalUSD, err := InputTotalUSD(db, timeNowTime, timePastTime)
-  if err != nil {
-    return data, Wrap(err, "DbStat")
-  }
-  outputTotalUSD, err := OutputTotalUSD(db, timeNowTime, timePastTime)
-  if err != nil {
-    return data, Wrap(err, "DbStat")
-  }
-  generationBTC, err := GenerationBTC(db, timeNowTime, timePastTime)
-  if err != nil {
-    return data, Wrap(err, "DbStat")
-  }
-  generationUSD, err := GenerationUSD(db, timeNowTime, timePastTime)
-  if err != nil {
-    return data, Wrap(err, "DbStat")
-  }
-  rewardBTC, err := RewardBTC(db, timeNowTime, timePastTime)
-  if err != nil {
-    return data, Wrap(err, "DbStat")
-  }
-  rewardUSD, err := RewardUSD(db, timeNowTime, timePastTime)
-  if err != nil {
-    return data, Wrap(err, "DbStat")
-  }
-  data = append(data, countBlocks, countTransactions, feeTotalBTC, feeTotalUSD, avgTimeBetweenBlocks, sizeMB, inputCount, outputCount, inputTotalBTC, outputTotalBTC, inputTotalUSD, outputTotalUSD, generationBTC, generationUSD, rewardBTC, rewardUSD)*/
 }
 
 func DbEmpty() (bool, error) {
