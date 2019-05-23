@@ -9,6 +9,7 @@ import (
     _ "github.com/lib/pq"
 )
 
+// Данные для подключения к бд.
 const (
   host      = "localhost"
   port      = 5432
@@ -18,10 +19,11 @@ const (
 )
 
 const (
-  BTC = 100000000.0
-  MB = 1000000
+  BTC = 100000000.0 // биткоин в сатоши.
+  MB = 1000000.0 // мегабайт в байтах.
 )
 
+// Функция, которая с одной стороны преобразует строковое значение, полученное из базы в флоат, а с другой - проверяет ошибку на входе(Хотел хоть как-то избавитсья от ифов).
 func StringToIntCheckErr(valueStr string, message string, err error) (int64, error) {
 	if err != nil {
 		return 0, err
@@ -33,6 +35,7 @@ func StringToIntCheckErr(valueStr string, message string, err error) (int64, err
 	return valueInt, nil
 }
 
+// Функция, которая с одной стороны преобразует строковое значение, полученное из базы в инт, а с другой - проверяет ошибку на входе(Хотел хоть как-то избавитсья от ифов).
 func StringToFloatCheckErr(valueStr string, message string, err error) (float64, error) {
 	if err != nil {
 		return 0, err
@@ -44,9 +47,9 @@ func StringToFloatCheckErr(valueStr string, message string, err error) (float64,
 	return valuefloat, nil
 }
 
+// Выполняет функцию запроса в базу и обворачивает возможную ошибку.
 func DoFuncCheckErr(fn func(*sql.DB, string, string, string) (string, error), db *sql.DB, sqlStatement string, timeNow string, timePast string, message string) (string, error) {
 
-  var result string
   result, err := fn(db, sqlStatement, timeNow, timePast)
   if err != nil {
     return "", Wrap(Wrap(err, "DoFuncCheckErr"), message)
@@ -54,6 +57,7 @@ func DoFuncCheckErr(fn func(*sql.DB, string, string, string) (string, error), db
   return result, nil
 }
 
+// Функция выполняющая все необходимые функции, для получения статистики и записывающая данные в data. У всех функций выполняющих запрос возвращаемым значением был пустой интерфейс, чтобы можно было их передать аргументами и можно было считать разнотипные данные в 1 слайс.
 func DoManyFuncs(db *sql.DB, timeNow string, timePast string, message string, fncs ...func(*sql.DB, string, string) (interface{}, error)) ([]interface{}, error) {
 
   data := make([]interface{}, 0)
@@ -67,6 +71,7 @@ func DoManyFuncs(db *sql.DB, timeNow string, timePast string, message string, fn
   return data, nil
 }
 
+// Подключение к базе.
 func DbConnect() (*sql.DB, error) {
   psqlInfo := fmt.Sprintf("host=%s port=%d user=%s " + "password=%s dbname=%s sslmode=disable",
   host, port, user, password, dbname)
@@ -77,6 +82,7 @@ func DbConnect() (*sql.DB, error) {
   return db, nil
 }
 
+// Функция записи данных в таблицу.
 func DbEntry(data []Block) error {
   var err error
   db, err := DbConnect()
@@ -95,6 +101,7 @@ func DbEntry(data []Block) error {
   return nil
 }
 
+// Функция запроса к базе с временными рамками.
 func DbQueryDay(db *sql.DB, sqlStatement, timeNowTime, timePastTime string) (string, error) {
   row := db.QueryRow(sqlStatement, timeNowTime, timePastTime)
   var result string
@@ -105,6 +112,7 @@ func DbQueryDay(db *sql.DB, sqlStatement, timeNowTime, timePastTime string) (str
   return result, nil
 }
 
+// Функция запроса к базе без временных рамок.
 func DbQuery(db *sql.DB, sqlStatement string) (string, error) {
   row := db.QueryRow(sqlStatement)
   var result string
@@ -115,24 +123,28 @@ func DbQuery(db *sql.DB, sqlStatement string) (string, error) {
   return result, nil
 }
 
+// Количество блоков.
 func CountBlocks(db *sql.DB, timeNowTime, timePastTime string) (interface{}, error) {
   sqlStatement := `SELECT count(*) FROM blocks WHERE time < $1 AND time > $2 ;`
   countBlocks, err := DoFuncCheckErr(DbQueryDay, db, sqlStatement, timeNowTime, timePastTime, "CountBlocks")
   return StringToIntCheckErr(countBlocks, "CountBlocks", err)
 }
 
+// Количество транзакций.
 func CountTransactions(db *sql.DB, timeNowTime, timePastTime string) (interface{}, error) {
   sqlStatement := `SELECT sum(transaction_count) FROM blocks WHERE time < $1 AND time > $2 ;`
   countTransactions, err := DoFuncCheckErr(DbQueryDay, db, sqlStatement, timeNowTime, timePastTime, "CountTransactions")
   return StringToIntCheckErr(countTransactions, "CountTransactions", err)
 }
 
+// Средняя комиссия за транзакцию в USD.
 func FeeTotalUSD(db *sql.DB, timeNowTime, timePastTime string) (interface{}, error) {
   sqlStatement := `SELECT sum(fee_total_usd)/sum(transaction_count) FROM blocks WHERE time < $1 AND time > $2 ;`
   feeTotalUSD, err := DoFuncCheckErr(DbQueryDay, db, sqlStatement, timeNowTime, timePastTime, "FeeTotalUSD")
   return StringToFloatCheckErr(feeTotalUSD, "FeeTotalUSD", err)
 }
 
+// Средняя комиссия за транзакцию в BTC.
 func FeeTotalBTC(db *sql.DB, timeNowTime, timePastTime string) (interface{}, error) {
   sqlStatement := `SELECT sum(fee_total)/sum(transaction_count) FROM blocks WHERE time < $1 AND time > $2 ;`
   feeTotalSatoshiString, err := DoFuncCheckErr(DbQueryDay, db, sqlStatement, timeNowTime, timePastTime, "FeeTotalBTC")
@@ -143,6 +155,7 @@ func FeeTotalBTC(db *sql.DB, timeNowTime, timePastTime string) (interface{}, err
   return float64(feeTotalSatoshi)/BTC, nil
 }
 
+// Время нахождения последнего блока за последние 24 часа.
 func MaxTimeDay(db *sql.DB, timeNowTime, timePastTime string) (time.Time, error) {
   sqlStatement := `SELECT max(time) FROM blocks WHERE time < $1 AND time > $2;`
   timeNowString, err := DoFuncCheckErr(DbQueryDay, db, sqlStatement, timeNowTime, timePastTime, "MaxTimeDay")
@@ -156,6 +169,7 @@ func MaxTimeDay(db *sql.DB, timeNowTime, timePastTime string) (time.Time, error)
   return timeNow, nil
 }
 
+// Время нахождения первого блока за последние 24 часа.
 func MinTimeDay(db *sql.DB, timeNowTime, timePastTime string) (time.Time, error) {
   sqlStatement := `SELECT min(time) FROM blocks WHERE time < $1 AND time > $2;`
   timePastString, err := DoFuncCheckErr(DbQueryDay, db, sqlStatement, timeNowTime, timePastTime, "MinTimeDay")
@@ -169,6 +183,7 @@ func MinTimeDay(db *sql.DB, timeNowTime, timePastTime string) (time.Time, error)
   return timePast, nil
 }
 
+// Среднее время между блоками.
 func AvgTimeBetweenBlocks(db *sql.DB, timeNowTime, timePastTime string) (interface{}, error) {
   countBlocks, err := CountBlocks(db, timeNowTime, timePastTime)
   if err != nil {
@@ -187,24 +202,32 @@ func AvgTimeBetweenBlocks(db *sql.DB, timeNowTime, timePastTime string) (interfa
   return float64(timeDiff)/float64(countBlocksInt-1), nil
 }
 
+// Средний размер блока в мегабайтах.
 func SizeMB(db *sql.DB, timeNowTime, timePastTime string) (interface{}, error) {
   sqlStatement := `SELECT avg(size) FROM blocks WHERE time < $1 AND time > $2;`
-  size, err := DoFuncCheckErr(DbQueryDay, db, sqlStatement, timeNowTime, timePastTime, "SizeMB")
-  return StringToFloatCheckErr(size, "SizeMB", err)
+  sizeString, err := DoFuncCheckErr(DbQueryDay, db, sqlStatement, timeNowTime, timePastTime, "SizeMB")
+  size, err := StringToFloatCheckErr(sizeString, "SizeMB", err)
+  if err != nil {
+    return 0.0, err
+  }
+  return float64(size)/MB, nil
 }
 
+// Количество входов всех транзакций во всех блоках.
 func InputCount(db *sql.DB, timeNowTime, timePastTime string) (interface{}, error) {
   sqlStatement := `SELECT sum(input_count) FROM blocks WHERE time < $1 AND time > $2;`
   inputCount, err := DoFuncCheckErr(DbQueryDay, db, sqlStatement, timeNowTime, timePastTime, "InputCount")
   return StringToIntCheckErr(inputCount, "InputCount", err)
 }
 
+// Количество выходов всех транзакций во всех блоках.
 func OutputCount(db *sql.DB, timeNowTime, timePastTime string) (interface{}, error) {
   sqlStatement := `SELECT sum(output_count) FROM blocks WHERE time < $1 AND time > $2;`
   outputCount, err := DoFuncCheckErr(DbQueryDay, db, sqlStatement, timeNowTime, timePastTime, "OutputCount")
   return StringToIntCheckErr(outputCount, "OutputCount", err)
 }
 
+// Сумма входов всех транзакций во всех блоках в BTC.
 func InputTotalBTC(db *sql.DB, timeNowTime, timePastTime string) (interface{}, error) {
   sqlStatement := `SELECT sum(input_total) FROM blocks WHERE time < $1 AND time > $2;`
   inputTotalSatoshiString, err := DoFuncCheckErr(DbQueryDay, db, sqlStatement, timeNowTime, timePastTime, "InputTotalBTC")
@@ -215,6 +238,7 @@ func InputTotalBTC(db *sql.DB, timeNowTime, timePastTime string) (interface{}, e
   return float64(inputTotalSatoshi)/BTC, nil
 }
 
+// Сумма выходов всех транзакций во всех блоках в BTC.
 func OutputTotalBTC(db *sql.DB, timeNowTime, timePastTime string) (interface{}, error) {
   sqlStatement := `SELECT sum(output_total) FROM blocks WHERE time < $1 AND time > $2;`
   outputTotalSatoshiString, err := DoFuncCheckErr(DbQueryDay, db, sqlStatement, timeNowTime, timePastTime, "OutputTotalBTC")
@@ -225,18 +249,21 @@ func OutputTotalBTC(db *sql.DB, timeNowTime, timePastTime string) (interface{}, 
   return float64(outputTotalSatoshi)/BTC, nil
 }
 
+// Сумма входов всех транзакций во всех блоках в USD.
 func InputTotalUSD(db *sql.DB, timeNowTime, timePastTime string) (interface{}, error) {
   sqlStatement := `SELECT sum(input_total_usd) FROM blocks WHERE time < $1 AND time > $2;`
   inputTotalUSD, err := DoFuncCheckErr(DbQueryDay, db, sqlStatement, timeNowTime, timePastTime, "InputTotalUSD")
   return StringToFloatCheckErr(inputTotalUSD, "InputTotalUSD", err)
 }
 
+// Сумма выходов всех транзакций во всех блоках в USD.
 func OutputTotalUSD(db *sql.DB, timeNowTime, timePastTime string) (interface{}, error) {
   sqlStatement := `SELECT sum(output_total_usd) FROM blocks WHERE time < $1 AND time > $2;`
   outputTotalUSD, err := DoFuncCheckErr(DbQueryDay, db, sqlStatement, timeNowTime, timePastTime, "OutputTotalUSD")
   return StringToFloatCheckErr(outputTotalUSD, "OutputTotalUSD", err)
 }
 
+// Нахождение суммарной награды майнеров за нахождение блоков в BTC.
 func GenerationBTC(db *sql.DB, timeNowTime, timePastTime string) (interface{}, error) {
   sqlStatement := `SELECT sum(generation) FROM blocks WHERE time < $1 AND time > $2;`
   generationSatoshiString, err := DoFuncCheckErr(DbQueryDay, db, sqlStatement, timeNowTime, timePastTime, "GenerationBTC")
@@ -247,12 +274,14 @@ func GenerationBTC(db *sql.DB, timeNowTime, timePastTime string) (interface{}, e
   return float64(generationSatoshi)/BTC, nil
 }
 
+// Нахождение суммарной награды майнеров за нахождение блоков в USD.
 func GenerationUSD(db *sql.DB, timeNowTime, timePastTime string) (interface{}, error) {
   sqlStatement := `SELECT sum(generation_usd) FROM blocks WHERE time < $1 AND time > $2;`
   generationUSD, err := DoFuncCheckErr(DbQueryDay, db, sqlStatement, timeNowTime, timePastTime, "GenerationUSD")
   return StringToFloatCheckErr(generationUSD, "GenerationUSD", err)
 }
 
+// Нахождение суммарной награды майнеров(за блок + комиссия) в BTC.
 func RewardBTC(db *sql.DB, timeNowTime, timePastTime string) (interface{}, error) {
   sqlStatement := `SELECT sum(reward) FROM blocks WHERE time < $1 AND time > $2;`
   rewardSatoshiString, err := DoFuncCheckErr(DbQueryDay, db, sqlStatement, timeNowTime, timePastTime, "RewardBTC")
@@ -263,12 +292,14 @@ func RewardBTC(db *sql.DB, timeNowTime, timePastTime string) (interface{}, error
   return float64(rewardSatoshi)/BTC, nil
 }
 
+// Нахождение суммарной награды майнеров(за блок + комиссия) в USD.
 func RewardUSD(db *sql.DB, timeNowTime, timePastTime string) (interface{}, error) {
   sqlStatement := `SELECT sum(reward_usd) FROM blocks WHERE time < $1 AND time > $2;`
   rewardUSD, err := DoFuncCheckErr(DbQueryDay, db, sqlStatement, timeNowTime, timePastTime, "RewardUSD")
   return StringToFloatCheckErr(rewardUSD, "RewardUSD", err)
 }
 
+// Получение статистики из бд и запись в слайс.
 func DbStat(timeNow, timePast string) ([]interface{}, error) {
   db, err := DbConnect()
   defer db.Close()
@@ -279,6 +310,7 @@ func DbStat(timeNow, timePast string) ([]interface{}, error) {
   return data, err
 }
 
+// Проверка пуста ли бд.
 func DbEmpty() (bool, error) {
   db, err := DbConnect()
   defer db.Close()
@@ -307,6 +339,7 @@ func DbStringToTime(timeString string) (time.Time, error) {
 	return timeTime, nil
 }
 
+// Возвращает время нахождения последнего блока из бд.
 func DbLastTime() (time.Time, error) {
   db, err := DbConnect()
   defer db.Close()
